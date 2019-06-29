@@ -8,7 +8,7 @@ fn diamond_line(number_of_asteriks: i32, number_of_padding_spaces: i32) -> Strin
     format!("{}{}{}\n", spaces, asteriks, spaces)
 }
 
-fn diamond(size: i32) -> Option<String> {
+pub fn diamond(size: i32) -> Option<String> {
     if size <= 0 {
         None
     } else if size % 2 == 0 {
