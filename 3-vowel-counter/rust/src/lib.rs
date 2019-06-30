@@ -3,11 +3,11 @@ extern crate lazy_static;
 
 pub fn vowel_count(some_string: &str) -> u32 {
     lazy_static! {
-        static ref VOWELS: Vec<char> = vec!['a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U'];
+        static ref VOWELS: Vec<char> = vec!['a', 'e', 'i', 'o', 'u'];
     }
 
     let mut counter = 0;
-    for c in some_string.chars() {
+    for c in some_string.to_ascii_lowercase().chars() {
         if VOWELS.contains(&c) {
             counter += 1;
         }
