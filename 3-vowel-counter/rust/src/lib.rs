@@ -1,18 +1,16 @@
 #[macro_use]
 extern crate lazy_static;
 
-pub fn vowel_count(some_string: &str) -> u32 {
+pub fn vowel_count(some_string: &str) -> usize {
     lazy_static! {
         static ref VOWELS: Vec<char> = vec!['a', 'e', 'i', 'o', 'u'];
     }
 
-    let mut counter = 0;
-    for c in some_string.to_ascii_lowercase().chars() {
-        if VOWELS.contains(&c) {
-            counter += 1;
-        }
-    }
-    counter
+    some_string
+        .to_ascii_lowercase()
+        .chars()
+        .filter(|c| VOWELS.contains(c))
+        .count()
 }
 
 #[cfg(test)]
