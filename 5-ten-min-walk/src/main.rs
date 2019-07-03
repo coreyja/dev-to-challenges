@@ -64,12 +64,6 @@ impl fmt::Display for Direction {
     }
 }
 
-fn can_take_detour(current_position: (i32, i32), minutes_left: u32) -> bool {
-    let distance_from_origin = current_position.0.abs() + current_position.1.abs();
-
-    distance_from_origin < minutes_left as i32
-}
-
 fn options_availible(current_position: (i32, i32), minutes_left: u32) -> Option<Vec<Direction>> {
     if current_position == (0, 0) && minutes_left == 0 {
         return Some(vec![]);
@@ -87,7 +81,7 @@ fn options_availible(current_position: (i32, i32), minutes_left: u32) -> Option<
             Direction::West,
         ];
 
-        let can_take_detour = can_take_detour(current_position, minutes_left);
+        let can_take_detour = distance_from_origin < minutes_left as i32;
 
         let options = all_options
             .iter()
@@ -100,13 +94,13 @@ fn options_availible(current_position: (i32, i32), minutes_left: u32) -> Option<
 
 fn chosen_direction(input: &str) -> Option<Direction> {
     let lower = input.to_ascii_lowercase();
-    if lower == "n" {
+    if lower.starts_with("n") {
         Some(Direction::North)
-    } else if lower == "e" {
+    } else if lower.starts_with("e") {
         Some(Direction::East)
-    } else if lower == "w" {
+    } else if lower.starts_with("w") {
         Some(Direction::West)
-    } else if lower == "s" {
+    } else if lower.starts_with("s") {
         Some(Direction::South)
     } else {
         None
