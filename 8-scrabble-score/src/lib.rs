@@ -1,3 +1,5 @@
+type Error = &'static str;
+
 #[macro_use]
 extern crate lazy_static;
 
@@ -66,11 +68,12 @@ impl Letter {
     }
 }
 
-fn string_to_letters(s: &str) -> Vec<Letter> {
+fn string_to_letters(s: &str) -> Result<Vec<Letter>, Error> {
     lazy_static! {
         static ref LETTER_REGEX: Regex = Regex::new("[a-zA-Z]\\*{0,2}").unwrap();
     }
-    LETTER_REGEX
+
+    Ok(LETTER_REGEX
         .captures_iter(s)
         .map(|x| {
             let only_capture = x.get(0).unwrap().as_str();
@@ -90,14 +93,24 @@ fn string_to_letters(s: &str) -> Vec<Letter> {
                 score_modifier,
             }
         })
-        .collect()
+        .collect())
 }
 
-pub fn scrabble_score(word: &str) -> u32 {
-    string_to_letters(&word.trim().to_ascii_lowercase())
-        .iter()
-        .map(|l| l.score())
-        .sum()
+pub fn scrabble_score(word: &str) -> Result<u32, Error> {
+    lazy_static! {
+        static ref VALIDATION_REGEX: Regex = Regex::new("^([a-zA-Z]\\*{0,2})*$").unwrap();
+    }
+
+    let trimmed_word = word.trim().to_ascii_lowercase();
+
+    if VALIDATION_REGEX.is_match(&trimmed_word) {
+        Ok(string_to_letters(&trimmed_word)?
+            .iter()
+            .map(|l| l.score())
+            .sum())
+    } else {
+        Err("This is not a valid scrabble word")
+    }
 }
 
 #[cfg(test)]
@@ -105,30 +118,50 @@ mod tests {
     use crate::*;
 
     #[test]
-    fn it_works_for_words_without_modifiers() {
-        assert_eq!(scrabble_score("test"), 4);
-        assert_eq!(scrabble_score("hello"), 8);
-        assert_eq!(scrabble_score("quiz"), 22);
+    fn it_does_not_work_with_invalid_chars() {
+        assert_eq!(
+            scrabble_score("t&@%&est"),
+            Err("This is not a valid scrabble word")
+        );
+        assert_eq!(
+            scrabble_score("123"),
+            Err("This is not a valid scrabble word")
+        );
     }
 
     #[test]
-    fn it_works_for_mixed_case_words_without_modifiers() {
-        assert_eq!(scrabble_score("tESt"), 4);
-        assert_eq!(scrabble_score("heLLO"), 8);
-        assert_eq!(scrabble_score("quIz"), 22);
+    fn it_works_for_words_without_modifiers() -> Result<(), Error> {
+        assert_eq!(scrabble_score("test")?, 4);
+        assert_eq!(scrabble_score("hello")?, 8);
+        assert_eq!(scrabble_score("quiz")?, 22);
+
+        Ok(())
     }
 
     #[test]
-    fn it_works_with_double_letter_modifiers() {
-        assert_eq!(scrabble_score("t*e*s*t*"), 8);
-        assert_eq!(scrabble_score("h*ello"), 12);
-        assert_eq!(scrabble_score("q*u*iz"), 33);
+    fn it_works_for_mixed_case_words_without_modifiers() -> Result<(), Error> {
+        assert_eq!(scrabble_score("tESt")?, 4);
+        assert_eq!(scrabble_score("heLLO")?, 8);
+        assert_eq!(scrabble_score("quIz")?, 22);
+
+        Ok(())
     }
 
     #[test]
-    fn it_works_with_triple_letter_modifiers() {
-        assert_eq!(scrabble_score("t**e**s*t*"), 10);
-        assert_eq!(scrabble_score("h**ello"), 16);
-        assert_eq!(scrabble_score("q*u*iz**"), 53);
+    fn it_works_with_double_letter_modifiers() -> Result<(), Error> {
+        assert_eq!(scrabble_score("t*e*s*t*")?, 8);
+        assert_eq!(scrabble_score("h*ello")?, 12);
+        assert_eq!(scrabble_score("q*u*iz")?, 33);
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_works_with_triple_letter_modifiers() -> Result<(), Error> {
+        assert_eq!(scrabble_score("t**e**s*t*")?, 10);
+        assert_eq!(scrabble_score("h**ello")?, 16);
+        assert_eq!(scrabble_score("q*u*iz**")?, 53);
+
+        Ok(())
     }
 }
