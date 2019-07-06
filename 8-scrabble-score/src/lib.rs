@@ -88,15 +88,7 @@ impl Letter {
                 let letter = x.get(1).unwrap().as_str();
                 let multiplier = x.get(2).unwrap().as_str();
 
-                let score_modifier = if multiplier == "" {
-                    None
-                } else if multiplier == "*" {
-                    Some(ScoreModifier::Double)
-                } else if multiplier == "**" {
-                    Some(ScoreModifier::Triple)
-                } else {
-                    unreachable!("We shouldn't be able to reach this due to the regex we are using")
-                };
+                let score_modifier = ScoreModifier::from_letter_modifier_string(multiplier);
 
                 let blank_tile = x.get(3).unwrap().as_str() == "^";
 
@@ -111,6 +103,15 @@ impl Letter {
 }
 
 impl ScoreModifier {
+    fn from_letter_modifier_string(s: &str) -> Option<Self> {
+        match s {
+            "" => None,
+            "*" => Some(ScoreModifier::Double),
+            "**" => Some(ScoreModifier::Triple),
+            _ => unreachable!("Unreachable due to regex parsing"),
+        }
+    }
+
     fn from_word_modifier_string(s: &str) -> Vec<Self> {
         lazy_static! {
             static ref REGEX: Regex = Regex::new("\\(([td])\\)").unwrap();
