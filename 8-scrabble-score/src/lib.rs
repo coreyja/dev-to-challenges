@@ -7,27 +7,27 @@ use std::collections::HashMap;
 
 use regex::Regex;
 
-enum ScoreModifier {
+enum LetterScoreModifier {
     Blank,
     Single,
     Double,
     Triple,
 }
 
-impl ScoreModifier {
+impl LetterScoreModifier {
     fn multiplier(&self) -> u32 {
         match self {
-            ScoreModifier::Blank => 0,
-            ScoreModifier::Single => 1,
-            ScoreModifier::Double => 2,
-            ScoreModifier::Triple => 3,
+            LetterScoreModifier::Blank => 0,
+            LetterScoreModifier::Single => 1,
+            LetterScoreModifier::Double => 2,
+            LetterScoreModifier::Triple => 3,
         }
     }
 }
 
 struct Letter {
     c: char,
-    score_modifier: ScoreModifier,
+    score_modifier: LetterScoreModifier,
 }
 
 impl Letter {
@@ -81,19 +81,18 @@ impl Letter {
         LETTER_REGEX
             .captures_iter(word)
             .map(|x| {
-                println!("{:?}", x);
                 let letter = x.get(1).unwrap().as_str();
                 let multiplier = x.get(2).unwrap().as_str();
                 let blank_modifier = x.get(3).unwrap().as_str();
 
                 let score_modifier = if blank_modifier == "^" {
-                    ScoreModifier::Blank
+                    LetterScoreModifier::Blank
                 } else if multiplier == "" {
-                    ScoreModifier::Single
+                    LetterScoreModifier::Single
                 } else if multiplier == "*" {
-                    ScoreModifier::Double
+                    LetterScoreModifier::Double
                 } else if multiplier == "**" {
-                    ScoreModifier::Triple
+                    LetterScoreModifier::Triple
                 } else {
                     panic!("We shouldn't be able to reach this due to the regex we are using")
                 };
@@ -107,33 +106,81 @@ impl Letter {
     }
 }
 
+#[derive(Debug)]
+enum WordScoreModifier {
+    Double,
+    Triple,
+}
+
+impl WordScoreModifier {
+    fn multiplier(&self) -> u32 {
+        match self {
+            WordScoreModifier::Double => 2,
+            WordScoreModifier::Triple => 3,
+        }
+    }
+
+    fn from_string(s: &str) -> Vec<Self> {
+        lazy_static! {
+            static ref REGEX: Regex = Regex::new("\\(([td])\\)").unwrap();
+        }
+        REGEX
+            .captures_iter(s)
+            .map(|x| {
+                let letter = x.get(1).unwrap();
+                println!("{:?}", x);
+
+                match letter.as_str() {
+                    "d" => WordScoreModifier::Double,
+                    "t" => WordScoreModifier::Triple,
+                    _ => panic!("Unreachable code block"),
+                }
+            })
+            .collect()
+    }
+}
+
 struct Word {
     letters: Vec<Letter>,
-    modifiers: Vec<ScoreModifier>,
+    modifiers: Vec<WordScoreModifier>,
 }
 
 impl Word {
     fn from_string(word: &str) -> Result<Self, Error> {
         lazy_static! {
-            static ref WORD_REGEX: Regex = Regex::new("^([a-zA-Z]\\*{0,2}\\^?)*$").unwrap();
+            static ref WORD_REGEX: Regex =
+                Regex::new("^((?:[a-z]\\*{0,2}\\^?)*)((?:\\([td]\\))*)$").unwrap();
         }
 
         let trimmed_word = word.trim().to_ascii_lowercase();
 
         if WORD_REGEX.is_match(&trimmed_word) {
-            let letters = Letter::letters_from_string(&trimmed_word);
+            let capture = WORD_REGEX.captures(&trimmed_word).unwrap();
 
-            Ok(Word {
-                letters,
-                modifiers: vec![],
-            })
+            let letters = Letter::letters_from_string(capture.get(1).unwrap().as_str());
+            let word_modifier_capture = capture.get(2);
+
+            let modifiers = match word_modifier_capture {
+                Some(c) => WordScoreModifier::from_string(c.as_str()),
+                None => vec![],
+            };
+
+            Ok(Word { letters, modifiers })
         } else {
             Err("This is not a valid scrabble word")
         }
     }
 
     fn score(&self) -> u32 {
+        self.letters_score() * self.multiplier()
+    }
+
+    fn letters_score(&self) -> u32 {
         self.letters.iter().map(|l| l.score()).sum()
+    }
+
+    fn multiplier(&self) -> u32 {
+        self.modifiers.iter().fold(1, |acc, x| acc * x.multiplier())
     }
 }
 
@@ -158,7 +205,7 @@ mod tests {
     }
 
     #[test]
-    fn it_works_for_words_without_modifiers() -> Result<(), Error> {
+    fn it_works_for_words_without_letter_modifiers() -> Result<(), Error> {
         assert_eq!(scrabble_score("test")?, 4);
         assert_eq!(scrabble_score("hello")?, 8);
         assert_eq!(scrabble_score("quiz")?, 22);
@@ -185,6 +232,24 @@ mod tests {
     }
 
     #[test]
+    fn it_works_with_blank_letter_modifiers() -> Result<(), Error> {
+        assert_eq!(scrabble_score("t**^e**s*t*")?, 7);
+        assert_eq!(scrabble_score("h**^ello")?, 4);
+        assert_eq!(scrabble_score("q*u*iz**^")?, 23);
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_works_for_modified_words_without_letter_modifiers() -> Result<(), Error> {
+        assert_eq!(scrabble_score("test(t)")?, 12);
+        assert_eq!(scrabble_score("hello(d)")?, 16);
+        assert_eq!(scrabble_score("quiz(d)(d)")?, 88);
+
+        Ok(())
+    }
+
+    #[test]
     fn it_works_with_triple_letter_modifiers() -> Result<(), Error> {
         assert_eq!(scrabble_score("t**e**s*t*")?, 10);
         assert_eq!(scrabble_score("h**ello")?, 16);
@@ -194,10 +259,10 @@ mod tests {
     }
 
     #[test]
-    fn it_works_with_blank_letter_modifiers() -> Result<(), Error> {
-        assert_eq!(scrabble_score("t**^e**s*t*")?, 7);
-        assert_eq!(scrabble_score("h**^ello")?, 4);
-        assert_eq!(scrabble_score("q*u*iz**^")?, 23);
+    fn it_works_with_mixed_word_and_letter_modifiers() -> Result<(), Error> {
+        assert_eq!(scrabble_score("t**e**s*t*(d)")?, 20);
+        assert_eq!(scrabble_score("h**ello(d)(d)")?, 64);
+        assert_eq!(scrabble_score("q*u*iz**^(t)")?, 69);
 
         Ok(())
     }
