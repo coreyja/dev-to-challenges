@@ -7,27 +7,24 @@ use std::collections::HashMap;
 
 use regex::Regex;
 
-enum LetterScoreModifier {
-    Blank,
-    Single,
+enum ScoreModifier {
     Double,
     Triple,
 }
 
-impl LetterScoreModifier {
+impl ScoreModifier {
     fn multiplier(&self) -> u32 {
         match self {
-            LetterScoreModifier::Blank => 0,
-            LetterScoreModifier::Single => 1,
-            LetterScoreModifier::Double => 2,
-            LetterScoreModifier::Triple => 3,
+            ScoreModifier::Double => 2,
+            ScoreModifier::Triple => 3,
         }
     }
 }
 
 struct Letter {
     c: char,
-    score_modifier: LetterScoreModifier,
+    score_modifier: Option<ScoreModifier>,
+    blank_tile: bool,
 }
 
 impl Letter {
@@ -65,12 +62,19 @@ impl Letter {
             };
         }
 
-        let raw_score = LETTER_SCORES
-            .get(&self.c)
-            .expect(&format!("This is not a scorable letter: {}", self.c))
-            .clone();
+        if self.blank_tile {
+            0
+        } else {
+            let raw_score = LETTER_SCORES
+                .get(&self.c)
+                .expect(&format!("This is not a scorable letter: {}", self.c))
+                .clone();
 
-        raw_score * self.score_modifier.multiplier()
+            match &self.score_modifier {
+                Some(m) => raw_score * m.multiplier(),
+                None => raw_score,
+            }
+        }
     }
 
     fn letters_from_string(word: &str) -> Vec<Self> {
@@ -83,44 +87,31 @@ impl Letter {
             .map(|x| {
                 let letter = x.get(1).unwrap().as_str();
                 let multiplier = x.get(2).unwrap().as_str();
-                let blank_modifier = x.get(3).unwrap().as_str();
 
-                let score_modifier = if blank_modifier == "^" {
-                    LetterScoreModifier::Blank
-                } else if multiplier == "" {
-                    LetterScoreModifier::Single
+                let score_modifier = if multiplier == "" {
+                    None
                 } else if multiplier == "*" {
-                    LetterScoreModifier::Double
+                    Some(ScoreModifier::Double)
                 } else if multiplier == "**" {
-                    LetterScoreModifier::Triple
+                    Some(ScoreModifier::Triple)
                 } else {
-                    panic!("We shouldn't be able to reach this due to the regex we are using")
+                    unreachable!("We shouldn't be able to reach this due to the regex we are using")
                 };
+
+                let blank_tile = x.get(3).unwrap().as_str() == "^";
 
                 Letter {
                     c: letter.chars().next().unwrap(),
                     score_modifier,
+                    blank_tile,
                 }
             })
             .collect()
     }
 }
 
-#[derive(Debug)]
-enum WordScoreModifier {
-    Double,
-    Triple,
-}
-
-impl WordScoreModifier {
-    fn multiplier(&self) -> u32 {
-        match self {
-            WordScoreModifier::Double => 2,
-            WordScoreModifier::Triple => 3,
-        }
-    }
-
-    fn from_string(s: &str) -> Vec<Self> {
+impl ScoreModifier {
+    fn from_word_modifier_string(s: &str) -> Vec<Self> {
         lazy_static! {
             static ref REGEX: Regex = Regex::new("\\(([td])\\)").unwrap();
         }
@@ -131,8 +122,8 @@ impl WordScoreModifier {
                 println!("{:?}", x);
 
                 match letter.as_str() {
-                    "d" => WordScoreModifier::Double,
-                    "t" => WordScoreModifier::Triple,
+                    "d" => ScoreModifier::Double,
+                    "t" => ScoreModifier::Triple,
                     _ => panic!("Unreachable code block"),
                 }
             })
@@ -142,7 +133,7 @@ impl WordScoreModifier {
 
 struct Word {
     letters: Vec<Letter>,
-    modifiers: Vec<WordScoreModifier>,
+    modifiers: Vec<ScoreModifier>,
 }
 
 impl Word {
@@ -161,7 +152,7 @@ impl Word {
             let word_modifier_capture = capture.get(2);
 
             let modifiers = match word_modifier_capture {
-                Some(c) => WordScoreModifier::from_string(c.as_str()),
+                Some(c) => ScoreModifier::from_word_modifier_string(c.as_str()),
                 None => vec![],
             };
 
