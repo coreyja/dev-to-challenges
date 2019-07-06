@@ -7,15 +7,27 @@ use std::collections::HashMap;
 
 use regex::Regex;
 
-enum LetterScoreModifier {
+enum ScoreModifier {
+    Blank,
     Single,
     Double,
     Triple,
 }
 
+impl ScoreModifier {
+    fn multiplier(&self) -> u32 {
+        match self {
+            ScoreModifier::Blank => 0,
+            ScoreModifier::Single => 1,
+            ScoreModifier::Double => 2,
+            ScoreModifier::Triple => 3,
+        }
+    }
+}
+
 struct Letter {
     c: char,
-    score_modifier: LetterScoreModifier,
+    score_modifier: ScoreModifier,
 }
 
 impl Letter {
@@ -58,59 +70,75 @@ impl Letter {
             .expect(&format!("This is not a scorable letter: {}", self.c))
             .clone();
 
-        let muptilpier = match self.score_modifier {
-            LetterScoreModifier::Single => 1,
-            LetterScoreModifier::Double => 2,
-            LetterScoreModifier::Triple => 3,
-        };
+        raw_score * self.score_modifier.multiplier()
+    }
 
-        raw_score * muptilpier
+    fn letters_from_string(word: &str) -> Vec<Self> {
+        lazy_static! {
+            static ref LETTER_REGEX: Regex = Regex::new("([a-zA-Z])(\\*{0,2})(\\^?)").unwrap();
+        }
+
+        LETTER_REGEX
+            .captures_iter(word)
+            .map(|x| {
+                println!("{:?}", x);
+                let letter = x.get(1).unwrap().as_str();
+                let multiplier = x.get(2).unwrap().as_str();
+                let blank_modifier = x.get(3).unwrap().as_str();
+
+                let score_modifier = if blank_modifier == "^" {
+                    ScoreModifier::Blank
+                } else if multiplier == "" {
+                    ScoreModifier::Single
+                } else if multiplier == "*" {
+                    ScoreModifier::Double
+                } else if multiplier == "**" {
+                    ScoreModifier::Triple
+                } else {
+                    panic!("We shouldn't be able to reach this due to the regex we are using")
+                };
+
+                Letter {
+                    c: letter.chars().next().unwrap(),
+                    score_modifier,
+                }
+            })
+            .collect()
     }
 }
 
-fn string_to_letters(s: &str) -> Result<Vec<Letter>, Error> {
-    lazy_static! {
-        static ref LETTER_REGEX: Regex = Regex::new("[a-zA-Z]\\*{0,2}").unwrap();
+struct Word {
+    letters: Vec<Letter>,
+    modifiers: Vec<ScoreModifier>,
+}
+
+impl Word {
+    fn from_string(word: &str) -> Result<Self, Error> {
+        lazy_static! {
+            static ref WORD_REGEX: Regex = Regex::new("^([a-zA-Z]\\*{0,2}\\^?)*$").unwrap();
+        }
+
+        let trimmed_word = word.trim().to_ascii_lowercase();
+
+        if WORD_REGEX.is_match(&trimmed_word) {
+            let letters = Letter::letters_from_string(&trimmed_word);
+
+            Ok(Word {
+                letters,
+                modifiers: vec![],
+            })
+        } else {
+            Err("This is not a valid scrabble word")
+        }
     }
 
-    Ok(LETTER_REGEX
-        .captures_iter(s)
-        .map(|x| {
-            let only_capture = x.get(0).unwrap().as_str();
-
-            let score_modifier = if only_capture.len() == 1 {
-                LetterScoreModifier::Single
-            } else if only_capture.len() == 2 {
-                LetterScoreModifier::Double
-            } else if only_capture.len() == 3 {
-                LetterScoreModifier::Triple
-            } else {
-                panic!("We shouldn't be able to reach this due to the regex we are using")
-            };
-
-            Letter {
-                c: only_capture.chars().next().unwrap(),
-                score_modifier,
-            }
-        })
-        .collect())
+    fn score(&self) -> u32 {
+        self.letters.iter().map(|l| l.score()).sum()
+    }
 }
 
 pub fn scrabble_score(word: &str) -> Result<u32, Error> {
-    lazy_static! {
-        static ref VALIDATION_REGEX: Regex = Regex::new("^([a-zA-Z]\\*{0,2})*$").unwrap();
-    }
-
-    let trimmed_word = word.trim().to_ascii_lowercase();
-
-    if VALIDATION_REGEX.is_match(&trimmed_word) {
-        Ok(string_to_letters(&trimmed_word)?
-            .iter()
-            .map(|l| l.score())
-            .sum())
-    } else {
-        Err("This is not a valid scrabble word")
-    }
+    Ok(Word::from_string(word)?.score())
 }
 
 #[cfg(test)]
@@ -161,6 +189,15 @@ mod tests {
         assert_eq!(scrabble_score("t**e**s*t*")?, 10);
         assert_eq!(scrabble_score("h**ello")?, 16);
         assert_eq!(scrabble_score("q*u*iz**")?, 53);
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_works_with_blank_letter_modifiers() -> Result<(), Error> {
+        assert_eq!(scrabble_score("t**^e**s*t*")?, 7);
+        assert_eq!(scrabble_score("h**^ello")?, 4);
+        assert_eq!(scrabble_score("q*u*iz**^")?, 23);
 
         Ok(())
     }
