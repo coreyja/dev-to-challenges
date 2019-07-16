@@ -1,4 +1,14 @@
 fn decompose_recursive(goal: u32, i: u32, curr: Vec<u32>) -> Option<Vec<u32>> {
+    macro_rules! try_recusing {
+        ( $goal:expr, $i:expr, $next:expr ) => {{
+            let attempt = decompose_recursive($goal, $i, $next);
+
+            if attempt.is_some() {
+                return attempt;
+            }
+        }};
+    }
+
     if goal == 0 {
         return Some(curr);
     }
@@ -10,17 +20,11 @@ fn decompose_recursive(goal: u32, i: u32, curr: Vec<u32>) -> Option<Vec<u32>> {
     if goal >= i.pow(2) {
         let mut next = curr.clone();
         next.push(i);
-        let attempt = decompose_recursive(goal - i.pow(2), i - 1, next);
 
-        if attempt.is_some() {
-            return attempt;
-        }
+        try_recusing!(goal - i.pow(2), i - 1, next);
     }
 
-    let attempt2 = decompose_recursive(goal, i - 1, curr);
-    if attempt2.is_some() {
-        return attempt2;
-    }
+    try_recusing!(goal, i - 1, curr);
 
     None
 }
