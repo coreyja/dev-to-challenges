@@ -1,49 +1,34 @@
-fn foobar(goal: u32, starting_point: u32, curr: Vec<u32>) -> Option<Vec<u32>> {
-    for i in (1..=starting_point).rev() {
-        if goal >= i.pow(2) {
-            let mut next = curr.clone();
-            next.push(i);
-            let test = foobar(goal - i.pow(2), starting_point - 1, next);
+fn decompose_recursive(goal: u32, i: u32, curr: Vec<u32>) -> Option<Vec<u32>> {
+    if goal == 0 {
+        return Some(curr);
+    }
 
-            if test.is_some() {
-                return test;
-            }
+    if i <= 0 {
+        return None;
+    }
+
+    if goal >= i.pow(2) {
+        let mut next = curr.clone();
+        next.push(i);
+        let attempt = decompose_recursive(goal - i.pow(2), i - 1, next);
+
+        if attempt.is_some() {
+            return attempt;
         }
+    }
+
+    let attempt2 = decompose_recursive(goal, i - 1, curr);
+    if attempt2.is_some() {
+        return attempt2;
     }
 
     None
 }
 
-fn decompose_starting_from(n: u32, starting_point: u32, curr: Vec<u32>) -> Option<Vec<u32>> {
-    let mut curr_total = n.pow(2);
-    let mut output = curr;
-
-    for i in (1..=starting_point).rev() {
-        if curr_total >= i.pow(2) {
-            curr_total -= i.pow(2);
-            output.push(i);
-        }
-    }
-
-    if curr_total == 0 {
-        output.sort();
-        Some(output)
-    } else {
-        None
-    }
-}
-
 pub fn decompose(n: u32) -> Option<Vec<u32>> {
-    // for i in (1..n).rev() {
-    //     let x = decompose_starting_from(n, i, vec![]);
-
-    //     if x.is_some() {
-    //         return x;
-    //     }
-    // }
-
-    // None
-    foobar(n.pow(2), n - 1, vec![])
+    let reverse_vec = decompose_recursive(n.pow(2), n - 1, vec![])?;
+    let vec = reverse_vec.iter().rev().cloned().collect();
+    Some(vec)
 }
 
 #[cfg(test)]
