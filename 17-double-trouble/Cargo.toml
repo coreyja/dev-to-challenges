@@ -1,0 +1,11 @@
+[package]
+name = "double-trouble"
+version = "0.1.0"
+authors = ["Corey Alexander <coreyja@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+
+[[bin]]
+name = "double-trouble-timer"
+path = "src/lib.rs"
