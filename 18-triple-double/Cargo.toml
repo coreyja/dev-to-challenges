@@ -1,0 +1,9 @@
+[package]
+name = "triple-double"
+version = "0.1.0"
+authors = ["Corey Alexander <coreyja@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+lazy_static = "1.3"
+regex = "1"
